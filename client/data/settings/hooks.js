@@ -140,9 +140,6 @@ export const useEnabledPaymentMethodIds = makeSettingsHook(
 export const usePaymentRequestEnabledSettings = makeSettingsHook(
 	'is_payment_request_enabled'
 );
-export const useAmazonPayEnabledSettings = makeSettingsHook(
-	'is_amazon_pay_enabled'
-);
 export const usePaymentRequestButtonSize = makeSettingsHook(
 	'payment_request_button_size',
 	''
@@ -157,6 +154,17 @@ export const usePaymentRequestButtonTheme = makeSettingsHook(
 );
 export const usePaymentRequestLocations = makeSettingsHook(
 	'payment_request_button_locations',
+	EMPTY_ARR
+);
+export const useAmazonPayEnabledSettings = makeSettingsHook(
+	'is_amazon_pay_enabled'
+);
+export const useAmazonPayButtonSize = makeSettingsHook(
+	'amazon_pay_button_size',
+	''
+);
+export const useAmazonPayLocations = makeSettingsHook(
+	'amazon_pay_button_locations',
 	EMPTY_ARR
 );
 export const useIsStripeEnabled = makeSettingsHook( 'is_stripe_enabled' );
