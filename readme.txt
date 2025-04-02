@@ -142,6 +142,7 @@ If you get stuck, you can ask for help in the [Plugin Forum](https://wordpress.o
 * Update - Update handling of PR as a country in the terminal locations endpoint.
 * Fix - Hide Amazon Pay in settings when legacy checkout is enabled.
 * Fix - Fix subscription renewal issues for Amazon Pay.
+* Fix - Fix ECE button width in shortcode cart page.
 * Tweak - SPE: Remove radio buttons
 * Update - Hide express checkout buttons when no product variation is selected.
 * Fix - Translation warning when initializing the status page information.
