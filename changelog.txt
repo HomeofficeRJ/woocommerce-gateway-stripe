@@ -16,6 +16,7 @@
 * Fix - Prevent deletion of webhooks for other tools
 * Dev - Improve SPE e2e tests to reduce flakiness
 * Fix - Prevents fatal errors for cases where we fail to load product details
+* Fix - Address an edge case with webhook URL comparisons
 
 = 9.4.1 - 2025-04-17 =
 * Dev - Forces rollback of version 9.4.0.
