@@ -15,6 +15,7 @@
 * Fix - Add caching for the Stripe Payment Method Configuration API
 * Fix - Prevent deletion of webhooks for other tools
 * Dev - Improve SPE e2e tests to reduce flakiness
+* Fix - Prevents fatal errors for cases where we fail to load product details
 
 = 9.4.1 - 2025-04-17 =
 * Dev - Forces rollback of version 9.4.0.
