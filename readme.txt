@@ -4,7 +4,7 @@ Tags: credit card, stripe, payments, woocommerce, automattic
 Requires at least: 6.6
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 9.4.1
+Stable tag: 9.5.0
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 Attributions: thorsten-stripe
@@ -110,7 +110,7 @@ If you get stuck, you can ask for help in the [Plugin Forum](https://wordpress.o
 
 == Changelog ==
 
-= 9.5.0 - xxxx-xx-xx =
+= 9.5.0 - 2025-05-13 =
 
 **New Features**
 
