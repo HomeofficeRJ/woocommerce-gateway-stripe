@@ -301,29 +301,40 @@ class WC_Stripe_Payment_Tokens {
 
 			// Retrieve the payment methods for the enabled reusable gateways.
 			$payment_methods = [];
-			foreach ( self::UPE_REUSABLE_GATEWAYS_BY_PAYMENT_METHOD as $payment_method_type => $reausable_gateway_id ) {
-
-				// The payment method type doesn't match the ones we use. Nothing to do here.
-				if ( ! isset( $gateway->payment_methods[ $payment_method_type ] ) ) {
-					continue;
+			if ( $gateway->is_oc_enabled() ) {
+				// For OC, get all available payment method types
+				foreach ( self::UPE_REUSABLE_GATEWAYS_BY_PAYMENT_METHOD as $payment_method_type => $reausable_gateway_id ) {
+					$payment_method_instance = WC_Stripe_UPE_Payment_Gateway::get_payment_method_instance( $payment_method_type );
+					if ( $payment_method_instance ) {
+						$retrieved_methods = $customer->get_payment_methods( $payment_method_type );
+						if ( ! empty( $retrieved_methods ) ) {
+							$payment_methods[] = $retrieved_methods;
+						}
+					}
 				}
+			} else {
+				foreach ( self::UPE_REUSABLE_GATEWAYS_BY_PAYMENT_METHOD as $payment_method_type => $reausable_gateway_id ) {
+					// The payment method type doesn't match the ones we use. Nothing to do here.
+					if ( ! isset( $gateway->payment_methods[ $payment_method_type ] ) ) {
+						continue;
+					}
 
-				$payment_method_instance = $gateway->payment_methods[ $payment_method_type ];
-				if ( $payment_method_instance->is_enabled() ) {
-					$payment_methods[] = $customer->get_payment_methods( $payment_method_type );
+					$payment_method_instance = $gateway->payment_methods[ $payment_method_type ];
+					if ( $payment_method_instance->is_enabled() ) {
+						$payment_methods[] = $customer->get_payment_methods( $payment_method_type );
+					}
 				}
 			}
 
 			// Add SEPA if it is disabled and iDEAL or Bancontact are enabled. iDEAL and Bancontact tokens are saved as SEPA tokens.
 			if ( $gateway->is_sepa_tokens_for_other_methods_enabled() ) {
-				if ( $gateway->is_spe_enabled() ) {
+				if ( $gateway->is_oc_enabled() ) {
 					$payment_methods[] = $customer->get_payment_methods( WC_Stripe_UPE_Payment_Method_Sepa::STRIPE_ID );
-				} else {
-					if ( ! $gateway->payment_methods[ WC_Stripe_UPE_Payment_Method_Sepa::STRIPE_ID ]->is_enabled()
+				} elseif ( ! $gateway->payment_methods[ WC_Stripe_UPE_Payment_Method_Sepa::STRIPE_ID ]->is_enabled()
 						&& ( $gateway->payment_methods[ WC_Stripe_UPE_Payment_Method_Ideal::STRIPE_ID ]->is_enabled()
 							|| $gateway->payment_methods[ WC_Stripe_UPE_Payment_Method_Bancontact::STRIPE_ID ]->is_enabled() ) ) {
+
 						$payment_methods[] = $customer->get_payment_methods( WC_Stripe_UPE_Payment_Method_Sepa::STRIPE_ID );
-					}
 				}
 			}
 
@@ -341,7 +352,7 @@ class WC_Stripe_Payment_Tokens {
 				$payment_method_type = $this->get_original_payment_method_type( $payment_method );
 
 				// The corresponding method for the payment method type is not enabled, skipping.
-				if ( ! $gateway->is_spe_enabled() && ! $gateway->payment_methods[ $payment_method_type ]->is_enabled() ) {
+				if ( ! $gateway->is_oc_enabled() && ! $gateway->payment_methods[ $payment_method_type ]->is_enabled() ) {
 					continue;
 				}
 

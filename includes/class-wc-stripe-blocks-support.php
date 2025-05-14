@@ -46,8 +46,7 @@ final class WC_Stripe_Blocks_Support extends AbstractPaymentMethodType {
 		$this->payment_request_configuration = null !== $payment_request_configuration ? $payment_request_configuration : new WC_Stripe_Payment_Request();
 
 		if ( null === $express_checkout_configuration ) {
-			$gateway = WC_Stripe::get_instance()->get_main_stripe_gateway();
-			$helper = new WC_Stripe_Express_Checkout_Helper( $gateway );
+			$helper = new WC_Stripe_Express_Checkout_Helper();
 			$ajax_handler = new WC_Stripe_Express_Checkout_Ajax_Handler( $helper );
 			$express_checkout_configuration = new WC_Stripe_Express_Checkout_Element( $ajax_handler, $helper );
 		}
@@ -468,7 +467,7 @@ final class WC_Stripe_Blocks_Support extends AbstractPaymentMethodType {
 		// This error would have been registered via wc_add_notice() and thus is not helpful for block checkout processing.
 		add_action(
 			'wc_gateway_stripe_process_payment_error',
-			function( $error ) use ( &$result ) {
+			function ( $error ) use ( &$result ) {
 				$payment_details                 = $result->payment_details;
 				$payment_details['errorMessage'] = wp_strip_all_tags( $error->getLocalizedMessage() );
 				$result->set_payment_details( $payment_details );

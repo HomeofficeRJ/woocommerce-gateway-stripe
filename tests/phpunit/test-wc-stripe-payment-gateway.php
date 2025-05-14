@@ -87,7 +87,7 @@ class WC_Stripe_Payment_Gateway_Test extends WP_UnitTestCase {
 		$order = WC_Helper_Order::create_order();
 		$this->updateOrderMeta( $order, '_stripe_intent_id', 'pi_123' );
 		$expected_intent = (object) [ 'id' => 'pi_123' ];
-		$callback        = function( $preempt, $request_args, $url ) use ( $expected_intent ) {
+		$callback        = function ( $preempt, $request_args, $url ) use ( $expected_intent ) {
 			$response = [
 				'headers'  => [],
 				'body'     => wp_json_encode( $expected_intent ),
@@ -123,7 +123,7 @@ class WC_Stripe_Payment_Gateway_Test extends WP_UnitTestCase {
 				'message' => 'error_message',
 			],
 		];
-		$callback       = function( $preempt, $request_args, $url ) use ( $response_error ) {
+		$callback       = function ( $preempt, $request_args, $url ) use ( $response_error ) {
 			$response = [
 				'headers'  => [],
 				'body'     => wp_json_encode( $response_error ),
@@ -578,8 +578,8 @@ class WC_Stripe_Payment_Gateway_Test extends WP_UnitTestCase {
 		$mock_subscription = WC_Helper_Order::create_order(); // We can use an order as a subscription.
 		$mock_subscription->set_payment_method( 'stripe' );
 
-		$mock_subscription->set_source_id( 'src_mock' );
-		$mock_subscription->set_stripe_customer_id( 'cus_mock' );
+		$mock_subscription->update_meta_data( '_stripe_source_id', 'src_mock' );
+		$mock_subscription->update_meta_data( '_stripe_customer_id', 'cus_mock' );
 		$mock_subscription->save();
 
 		// This is the key the customer's payment methods are stored under in the transient.
@@ -631,45 +631,45 @@ class WC_Stripe_Payment_Gateway_Test extends WP_UnitTestCase {
 	 */
 	public function test_lock_order_payment() {
 		$order_1 = WC_Helper_Order::create_order();
-		$locked  = $order_1->lock_payment();
+		$locked  = $this->gateway->lock_order_payment( $order_1 );
 
 		$this->assertFalse( $locked );
-		$current_lock = $order_1->get_lock_payment();
+		$current_lock = $order_1->get_meta( '_stripe_lock_payment' );
 		$this->assertEqualsWithDelta( (int) $current_lock, ( time() + 5 * MINUTE_IN_SECONDS ), 3 );
 
-		$locked = $order_1->lock_payment();
+		$locked = $this->gateway->lock_order_payment( $order_1 );
 		$this->assertTrue( $locked );
 
 		// lock with an intent ID.
 		$order_2   = WC_Helper_Order::create_order();
 		$intent_id = 'pi_123intent';
 
-		$locked       = $order_2->lock_payment( $intent_id );
-		$current_lock = $order_2->get_lock_payment();
+		$locked       = $this->gateway->lock_order_payment( $order_2, $intent_id );
+		$current_lock = $order_2->get_meta( '_stripe_lock_payment' );
 
 		$this->assertFalse( $locked );
-		$locked = $order_2->lock_payment( $intent_id );
+		$locked = $this->gateway->lock_order_payment( $order_2, $intent_id );
 		$this->assertTrue( $locked );
-		$locked = $order_2->lock_payment(); // test that you don't need to pass the intent ID to check lock.
+		$locked = $this->gateway->lock_order_payment( $order_2 ); // test that you don't need to pass the intent ID to check lock.
 		$this->assertTrue( $locked );
 
 		// test expired locks.
 		$order_3 = WC_Helper_Order::create_order();
-		$order_3->set_lock_payment( time() - 1 );
+		$order_3->update_meta_data( '_stripe_lock_payment', time() - 1 );
 		$order_3->save_meta_data();
 
-		$locked       = $order_3->lock_payment( $intent_id );
-		$current_lock = $order_3->get_lock_payment();
+		$locked       = $this->gateway->lock_order_payment( $order_3, $intent_id );
+		$current_lock = $order_3->get_meta( '_stripe_lock_payment' );
 
 		$this->assertFalse( $locked );
 		$this->assertEqualsWithDelta( (int) $current_lock, ( time() + 5 * MINUTE_IN_SECONDS ), 3 );
 
 		// test two instances of the same order, one locked and one not.
 		$order_4   = WC_Helper_Order::create_order();
-		$dup_order = WC_Stripe_Order::get_by_id( $order_4->get_id() );
+		$dup_order = wc_get_order( $order_4->get_id() );
 
-		$order_4->lock_payment();
-		$dup_locked = $dup_order->lock_payment();
+		$this->gateway->lock_order_payment( $order_4 );
+		$dup_locked = $this->gateway->lock_order_payment( $dup_order );
 		$this->assertTrue( $dup_locked ); // Confirms lock from $order_4 prevents payment on $dup_order.
 	}
 
@@ -706,12 +706,12 @@ class WC_Stripe_Payment_Gateway_Test extends WP_UnitTestCase {
 		$order = WC_Helper_Order::create_order();
 		$order->set_currency( 'USD' );
 		$order->set_transaction_id( 'ch_123' );
-		$order->set_charge_captured( 'yes' );
+		$order->update_meta_data( '_stripe_charge_captured', 'yes' );
 		$order->save();
 		$order_id = $order->get_id();
 
 		// Mock the Stripe API refund response
-		$callback = function( $preempt, $request_args, $url ) {
+		$callback = function ( $preempt, $request_args, $url ) {
 			if ( strpos( $url, 'refunds' ) !== false ) {
 				$response = [
 					'headers'  => [],
@@ -743,4 +743,100 @@ class WC_Stripe_Payment_Gateway_Test extends WP_UnitTestCase {
 		remove_filter( 'pre_http_request', $callback );
 	}
 
+	/**
+	 * Tests for `payment_icons`.
+	 *
+	 * @param bool   $optimized_checkout_enabled Whether Optimized Checkout is enabled.
+	 * @param mixed  $filter                     The filter to apply.
+	 * @param array  $expected                   The expected result.
+	 * @return void
+	 *
+	 * @dataProvider provide_test_payment_icons
+	 */
+	public function test_payment_icons( $optimized_checkout_enabled, $filter, $expected ) {
+		update_option( WC_Stripe_Feature_Flags::OC_FEATURE_FLAG_NAME, $optimized_checkout_enabled ? 'yes' : 'no' );
+
+		$stripe_settings                               = WC_Stripe_Helper::get_stripe_settings();
+		$stripe_settings['optimized_checkout_element'] = $optimized_checkout_enabled ? 'yes' : 'no';
+		WC_Stripe_Helper::update_main_stripe_settings( $stripe_settings );
+
+		if ( $filter ) {
+			add_filter( 'wc_stripe_payment_icons', $filter );
+		} else {
+			remove_filter( 'wc_stripe_payment_icons', [] );
+		}
+
+		$this->assertSame( $expected, $this->gateway->payment_icons() );
+	}
+
+	/**
+	 * Provider for `test_payment_icons`.
+	 *
+	 * @return array[]
+	 */
+	public function provide_test_payment_icons() {
+		$mocked_filter = function () {
+			return [];
+		};
+
+		return [
+			'default'                => [
+				'optimized checkout enabled' => false,
+				'filter'                     => null,
+				'expected'                   => [
+					'us_bank_account' => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/bank-debit.svg" class="stripe-ach-icon stripe-icon" alt="ACH" />',
+					'acss_debit'      => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/bank-debit.svg" class="stripe-ach-icon stripe-icon" alt="Pre-Authorized Debit" />',
+					'alipay'          => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/alipay.svg" class="stripe-alipay-icon stripe-icon" alt="Alipay" />',
+					'au_becs_debit'   => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/bank-debit.svg" class="stripe-ach-icon stripe-icon" alt="BECS Direct Debit" />',
+					'blik'            => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/blik.svg" class="stripe-blik-icon stripe-icon" alt="BLIK" />',
+					'wechat_pay'      => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/wechat.svg" class="stripe-wechat-icon stripe-icon" alt="Wechat Pay" />',
+					'bancontact'      => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/bancontact.svg" class="stripe-bancontact-icon stripe-icon" alt="Bancontact" />',
+					'ideal'           => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/ideal.svg" class="stripe-ideal-icon stripe-icon" alt="iDEAL" />',
+					'p24'             => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/p24.svg" class="stripe-p24-icon stripe-icon" alt="P24" />',
+					'giropay'         => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/giropay.svg" class="stripe-giropay-icon stripe-icon" alt="giropay" />',
+					'klarna'          => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/klarna.svg" class="stripe-klarna-icon stripe-icon" alt="Klarna" />',
+					'affirm'          => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/affirm.svg" class="stripe-affirm-icon stripe-icon" alt="Affirm" />',
+					'eps'             => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/eps.svg" class="stripe-eps-icon stripe-icon" alt="EPS" />',
+					'multibanco'      => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/multibanco.svg" class="stripe-multibanco-icon stripe-icon" alt="Multibanco" />',
+					'sofort'          => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/sofort.svg" class="stripe-sofort-icon stripe-icon" alt="Sofort" />',
+					'sepa'            => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/sepa.svg" class="stripe-sepa-icon stripe-icon" alt="SEPA" />',
+					'boleto'          => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/boleto.svg" class="stripe-boleto-icon stripe-icon" alt="Boleto" />',
+					'oxxo'            => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/oxxo.svg" class="stripe-oxxo-icon stripe-icon" alt="OXXO" />',
+					'cards'           => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/cards.svg" class="stripe-cards-icon stripe-icon" alt="Credit / Debit Card" />',
+					'cashapp'         => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/cashapp.svg" class="stripe-cashapp-icon stripe-icon" alt="Cash App Pay" />',
+				],
+			],
+			'Optimized Checkout enabled' => [
+				'optimized checkout enabled' => true,
+				'filter'                 => null,
+				'expected'               => [
+					'us_bank_account' => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/bank-debit.svg" class="stripe-ach-icon stripe-icon" alt="ACH" />',
+					'acss_debit'      => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/bank-debit.svg" class="stripe-ach-icon stripe-icon" alt="Pre-Authorized Debit" />',
+					'alipay'          => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/alipay.svg" class="stripe-alipay-icon stripe-icon" alt="Alipay" />',
+					'au_becs_debit'   => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/bank-debit.svg" class="stripe-ach-icon stripe-icon" alt="BECS Direct Debit" />',
+					'blik'            => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/blik.svg" class="stripe-blik-icon stripe-icon" alt="BLIK" />',
+					'wechat_pay'      => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/wechat.svg" class="stripe-wechat-icon stripe-icon" alt="Wechat Pay" />',
+					'bancontact'      => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/bancontact.svg" class="stripe-bancontact-icon stripe-icon" alt="Bancontact" />',
+					'ideal'           => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/ideal.svg" class="stripe-ideal-icon stripe-icon" alt="iDEAL" />',
+					'p24'             => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/p24.svg" class="stripe-p24-icon stripe-icon" alt="P24" />',
+					'giropay'         => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/giropay.svg" class="stripe-giropay-icon stripe-icon" alt="giropay" />',
+					'klarna'          => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/klarna.svg" class="stripe-klarna-icon stripe-icon" alt="Klarna" />',
+					'affirm'          => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/affirm.svg" class="stripe-affirm-icon stripe-icon" alt="Affirm" />',
+					'eps'             => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/eps.svg" class="stripe-eps-icon stripe-icon" alt="EPS" />',
+					'multibanco'      => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/multibanco.svg" class="stripe-multibanco-icon stripe-icon" alt="Multibanco" />',
+					'sofort'          => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/sofort.svg" class="stripe-sofort-icon stripe-icon" alt="Sofort" />',
+					'sepa'            => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/sepa.svg" class="stripe-sepa-icon stripe-icon" alt="SEPA" />',
+					'boleto'          => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/boleto.svg" class="stripe-boleto-icon stripe-icon" alt="Boleto" />',
+					'oxxo'            => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/oxxo.svg" class="stripe-oxxo-icon stripe-icon" alt="OXXO" />',
+					'cards'           => '',
+					'cashapp'         => '<img src="' . WC_STRIPE_PLUGIN_URL . '/assets/images/cashapp.svg" class="stripe-cashapp-icon stripe-icon" alt="Cash App Pay" />',
+				],
+			],
+			'filter applied'         => [
+				'optimized checkout enabled' => false,
+				'filter'                 => $mocked_filter,
+				'expected'               => [],
+			],
+		];
+	}
 }

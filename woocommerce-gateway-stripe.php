@@ -5,12 +5,12 @@
  * Description: Take credit card payments on your store using Stripe.
  * Author: Stripe
  * Author URI: https://stripe.com/
- * Version: 9.4.1
+ * Version: 9.5.0
  * Requires Plugins: woocommerce
- * Requires at least: 6.5
- * Tested up to: 6.7
- * WC requires at least: 9.5
- * WC tested up to: 9.7
+ * Requires at least: 6.6
+ * Tested up to: 6.8
+ * WC requires at least: 9.6
+ * WC tested up to: 9.8
  * Text Domain: woocommerce-gateway-stripe
  * Domain Path: /languages
  */
@@ -22,10 +22,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Required minimums and constants
  */
-define( 'WC_STRIPE_VERSION', '9.4.1' ); // WRCS: DEFINED_VERSION.
+define( 'WC_STRIPE_VERSION', '9.5.0' ); // WRCS: DEFINED_VERSION.
 define( 'WC_STRIPE_MIN_PHP_VER', '7.4' );
-define( 'WC_STRIPE_MIN_WC_VER', '9.5' );
-define( 'WC_STRIPE_FUTURE_MIN_WC_VER', '9.6' );
+define( 'WC_STRIPE_MIN_WC_VER', '9.6' );
+define( 'WC_STRIPE_FUTURE_MIN_WC_VER', '9.7' );
 define( 'WC_STRIPE_MAIN_FILE', __FILE__ );
 define( 'WC_STRIPE_ABSPATH', __DIR__ . '/' );
 define( 'WC_STRIPE_PLUGIN_URL', untrailingslashit( plugin_dir_url( WC_STRIPE_MAIN_FILE ) ) );
@@ -190,9 +190,11 @@ function woocommerce_gateway_stripe() {
 				if ( is_admin() ) {
 					require_once __DIR__ . '/includes/admin/class-wc-stripe-privacy.php';
 				}
+				if ( file_exists( __DIR__ . '/includes/class-wc-stripe-feature-flags.php' ) ) {
+					require_once __DIR__ . '/includes/class-wc-stripe-feature-flags.php';
+				}
 
 				require_once __DIR__ . '/includes/class-wc-stripe-order.php';
-				require_once __DIR__ . '/includes/class-wc-stripe-feature-flags.php';
 				require_once __DIR__ . '/includes/class-wc-stripe-upe-compatibility.php';
 				require_once __DIR__ . '/includes/class-wc-stripe-co-branded-cc-compatibility.php';
 				require_once __DIR__ . '/includes/class-wc-stripe-exception.php';
@@ -305,7 +307,7 @@ function woocommerce_gateway_stripe() {
 						require_once __DIR__ . '/includes/admin/class-wc-stripe-payment-requests-controller.php';
 						new WC_Stripe_Payment_Requests_Controller();
 					} elseif ( isset( $_GET['area'] ) && 'amazon_pay' === $_GET['area'] && WC_Stripe_Feature_Flags::is_amazon_pay_available() ) {
-						require_once dirname( __FILE__ ) . '/includes/admin/class-wc-stripe-amazon-pay-controller.php';
+						require_once __DIR__ . '/includes/admin/class-wc-stripe-amazon-pay-controller.php';
 						new WC_Stripe_Amazon_Pay_Controller();
 					} else {
 						new WC_Stripe_Settings_Controller( $this->account );
@@ -352,7 +354,7 @@ function woocommerce_gateway_stripe() {
 			 */
 			public function init_express_checkout() {
 				// Express checkout configurations.
-				$express_checkout_helper              = new WC_Stripe_Express_Checkout_Helper( $this->get_main_stripe_gateway() );
+				$express_checkout_helper              = new WC_Stripe_Express_Checkout_Helper();
 				$express_checkout_ajax_handler        = new WC_Stripe_Express_Checkout_Ajax_Handler( $express_checkout_helper );
 				$this->express_checkout_configuration = new WC_Stripe_Express_Checkout_Element( $express_checkout_ajax_handler, $express_checkout_helper );
 				$this->express_checkout_configuration->init();
@@ -530,7 +532,7 @@ function woocommerce_gateway_stripe() {
 				if ( is_admin() ) {
 					$methods = array_filter(
 						$methods,
-						function( $method ) {
+						function ( $method ) {
 							return ! is_a( $method, WC_Stripe_UPE_Payment_Method_Link::class );
 						}
 					);
@@ -916,7 +918,7 @@ function woocommerce_gateway_stripe_woocommerce_block_support() {
 		// already registered.
 		add_action(
 			'woocommerce_blocks_payment_method_type_registration',
-			function( Automattic\WooCommerce\Blocks\Payments\PaymentMethodRegistry $payment_method_registry ) {
+			function ( Automattic\WooCommerce\Blocks\Payments\PaymentMethodRegistry $payment_method_registry ) {
 				// I noticed some incompatibility with WP 5.x and WC 5.3 when `_wcstripe_feature_upe_settings` is enabled.
 				if ( ! class_exists( 'WC_Stripe_Payment_Request' ) || ! class_exists( 'WC_Stripe_Express_Checkout_Element' ) ) {
 					return;
@@ -926,7 +928,7 @@ function woocommerce_gateway_stripe_woocommerce_block_support() {
 				// registers as shared instance.
 				$container->register(
 					WC_Stripe_Blocks_Support::class,
-					function() {
+					function () {
 						if ( class_exists( 'WC_Stripe' ) ) {
 							return new WC_Stripe_Blocks_Support( WC_Stripe::get_instance()->payment_request_configuration, WC_Stripe::get_instance()->express_checkout_configuration );
 						} else {
@@ -945,7 +947,7 @@ function woocommerce_gateway_stripe_woocommerce_block_support() {
 
 add_action(
 	'before_woocommerce_init',
-	function() {
+	function () {
 		if ( class_exists( '\Automattic\WooCommerce\Utilities\FeaturesUtil' ) ) {
 			\Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'cart_checkout_blocks', __FILE__, true );
 			\Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'custom_order_tables', __FILE__, true );
