@@ -1,6 +1,7 @@
 *** Changelog ***
 
 = 9.5.1 - xxxx-xx-xx =
+* Fix - Fix fatal error when checking for a payment method availability using a specific order ID.
 
 = 9.5.0 - 2025-05-13 =
 * Fix - Fixes the listing of payment methods on the classic checkout when the Optimized Checkout is enabled.

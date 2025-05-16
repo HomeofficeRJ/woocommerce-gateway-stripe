@@ -111,5 +111,6 @@ If you get stuck, you can ask for help in the [Plugin Forum](https://wordpress.o
 == Changelog ==
 
 = 9.5.1 - xxxx-xx-xx =
+* Fix - Fix fatal error when checking for a payment method availability using a specific order ID.
 
 [See changelog for full details across versions](https://raw.githubusercontent.com/woocommerce/woocommerce-gateway-stripe/trunk/changelog.txt).
