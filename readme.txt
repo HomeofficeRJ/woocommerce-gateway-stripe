@@ -4,7 +4,7 @@ Tags: credit card, stripe, payments, woocommerce, automattic
 Requires at least: 6.6
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 9.5.1
+Stable tag: 9.5.2
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 Attributions: thorsten-stripe
@@ -110,7 +110,7 @@ If you get stuck, you can ask for help in the [Plugin Forum](https://wordpress.o
 
 == Changelog ==
 
-= 9.5.2 - xxxx-xx-xx =
+= 9.5.2 - 2025-05-22 =
 * Add - Implement custom database cache for persistent caching with in-memory optimization.
 * Update - Remove feature that flags 401s and proactively blocks subsequent API calls until the store has reauthenticated.
 * Fix - Disable payment settings sync when we receive unsupported payment method configurations.
